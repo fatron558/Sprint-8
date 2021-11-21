@@ -1,5 +1,8 @@
 package ru.sberschool.hystrix
 
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import feign.Request
 import feign.httpclient.ApacheHttpClient
 import feign.hystrix.HystrixFeign
@@ -15,12 +18,24 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 
 class SlowlyApiTest {
+    private val mapper = ObjectMapper()
+        .registerKotlinModule()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+
     val client = HystrixFeign.builder()
         .client(ApacheHttpClient())
-        .decoder(JacksonDecoder())
+        .decoder(JacksonDecoder(mapper))
         // для удобства тестирования задаем таймауты на 1 секунду
         .options(Request.Options(1, TimeUnit.SECONDS, 1, TimeUnit.SECONDS, true))
         .target(SlowlyApi::class.java, "http://127.0.0.1:18080", FallbackSlowlyApi())
+
+    private val clientPokemon = HystrixFeign.builder()
+        .client(ApacheHttpClient())
+        .decoder(JacksonDecoder(mapper))
+        // для удобства тестирования задаем таймауты на 1 секунду
+        .options(Request.Options(1, TimeUnit.SECONDS, 1, TimeUnit.SECONDS, true))
+        .target(SlowlyApi::class.java, "https://pokeapi.co/api/v2", FallbackSlowlyApi())
+
     lateinit var mockServer: ClientAndServer
 
     @BeforeEach
@@ -35,14 +50,14 @@ class SlowlyApiTest {
     }
 
     @Test
-    fun `getSomething() should return predefined data`() {
+    fun testFallback() {
         // given
         MockServerClient("127.0.0.1", 18080)
             .`when`(
                 // задаем матчер для нашего запроса
                 HttpRequest.request()
                     .withMethod("GET")
-                    .withPath("/")
+                    .withPath("/item-category/stat-boosts")
             )
             .respond(
                 // наш запрос попадает на таймаут
@@ -51,6 +66,11 @@ class SlowlyApiTest {
                     .withDelay(TimeUnit.SECONDS, 30) //
             )
         // expect
-        assertEquals("predefined data", client.getSomething().data)
+        assertEquals("fallback", client.getItemCategory().name)
+    }
+
+    @Test
+    fun testClient() {
+        assertEquals("stat-boosts", clientPokemon.getItemCategory().name)
     }
 }

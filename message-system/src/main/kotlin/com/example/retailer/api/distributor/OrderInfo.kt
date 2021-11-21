@@ -1,8 +1,12 @@
 package com.example.retailer.api.distributor
 
+import javax.persistence.*
+
 /**
  * Уведомление об изменении заказа
  */
+@Entity
+@Table(name = "orders_info")
 data class OrderInfo(
 
     /**
@@ -10,6 +14,7 @@ data class OrderInfo(
      *
      * @see com.example.retailer.api.distributor.Item#id
      */
+    @Id
     val orderId: String,
 
     /**
@@ -17,11 +22,11 @@ data class OrderInfo(
      *  Created
      *
      */
+    @Enumerated(EnumType.ORDINAL)
     var status: OrderStatus,
 
     /**
      * Контрольная сумма
      */
-    val signature: String,
-
+    val signature: String
 )
